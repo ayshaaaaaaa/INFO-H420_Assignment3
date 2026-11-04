@@ -1,4 +1,4 @@
-# INFO-H420 Assignment 3: Research Paper Pipeline
+# INFO-H420 Assignment 3: Pipeline
 
 ## 1. What does this project do?
 
