@@ -1,0 +1,46 @@
+# Local development only. Airflow runs in Linux; Ollama and Google Drive run on macOS.
+services:
+  airflow:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: info-h420-airflow:3.0.6-python3.12
+    container_name: info-h420-airflow
+    command: standalone
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      AIRFLOW_HOME: /opt/airflow
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/project/dags
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      PYTHONPATH: /opt/project
+      # This SQLite DB is the research-paper library, not Airflow's metadata DB.
+      DB_PATH: /opt/airflow/data/papers.db
+      PAPERS_DIR: /opt/research/papers
+      OUTPUT_DIR: /opt/research/output
+      LLM_BASE_URL: http://host.docker.internal:11434/v1
+      LLM_MODEL: llama3.2:3b
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+    volumes:
+      # Keeps Airflow's metadata, logs, and the library DB across restarts.
+      - airflow_state:/opt/airflow
+      # Airflow reads your existing src/ and dags/ folders.
+      - type: bind
+        source: .
+        target: /opt/project
+        read_only: true
+      # Google Drive PDFs are read-only; the generated HTML needs write access.
+      - type: bind
+        source: ${PAPERS_DIR_HOST:?Set PAPERS_DIR_HOST in .env.docker}
+        target: /opt/research/papers
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${OUTPUT_DIR_HOST:?Set OUTPUT_DIR_HOST in .env.docker}
+        target: /opt/research/output
+        bind:
+          create_host_path: false
+
+volumes:
+  airflow_state:
