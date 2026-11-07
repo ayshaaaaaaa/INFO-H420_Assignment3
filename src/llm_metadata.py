@@ -26,7 +26,7 @@ return ONLY a JSON object with exactly these keys:
 - "title": the paper's title, copied exactly as written in the text
 - "summary": a short summary of 2-3 sentences
 - "keywords": a list of 3 to 6 short keywords
-- "category": exactly one of {CATEGORIES}
+- "category": the single best-fitting one of {CATEGORIES}. Use "Machine Learning" for papers about learning algorithms, "Process Mining" for event logs and process models, "Data Engineering" only for pipelines and data infrastructure
 
 Paper text:
 {markdown[:MAX_CHARS]}
@@ -56,7 +56,7 @@ def extract_metadata(markdown: str) -> dict:
     for attempt in range(2):
         response = client.chat.completions.create(
             model=MODEL,
-            temperature=0,
+            temperature=0 if attempt == 0 else 0.5,
             response_format={"type": "json_object"},
             messages=[{"role": "user", "content": _build_prompt(markdown)}],
         )
