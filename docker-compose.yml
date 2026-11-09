@@ -1,4 +1,3 @@
-# Local development only. Airflow runs in Linux; Ollama and Google Drive run on macOS.
 services:
   airflow:
     build:
@@ -14,7 +13,6 @@ services:
       AIRFLOW__CORE__DAGS_FOLDER: /opt/project/dags
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
       PYTHONPATH: /opt/project
-      # This SQLite DB is the research-paper library, not Airflow's metadata DB.
       DB_PATH: /opt/airflow/data/papers.db
       PAPERS_DIR: /opt/research/papers
       OUTPUT_DIR: /opt/research/output
@@ -22,14 +20,11 @@ services:
       LLM_MODEL: llama3.2:3b
       DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
     volumes:
-      # Keeps Airflow's metadata, logs, and the library DB across restarts.
       - airflow_state:/opt/airflow
-      # Airflow reads your existing src/ and dags/ folders.
       - type: bind
         source: .
         target: /opt/project
         read_only: true
-      # Google Drive PDFs are read-only; the generated HTML needs write access.
       - type: bind
         source: ${PAPERS_DIR_HOST:?Set PAPERS_DIR_HOST in .env.docker}
         target: /opt/research/papers

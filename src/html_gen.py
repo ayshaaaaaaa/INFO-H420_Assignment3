@@ -226,7 +226,7 @@ def generate_html(papers: list[dict], output_path: str | None = None) -> str:
         output_path = os.path.join(OUTPUT_DIR, "index.html")
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-    data = json.dumps(papers).replace("</", "<\\/")  # keep </script> from breaking the page
+    data = json.dumps(papers).replace("</", "<\\/")  
     html = TEMPLATE.replace("__DATA__", data).replace(
         "__UPDATED__", datetime.now().strftime("%Y-%m-%d %H:%M")
     )

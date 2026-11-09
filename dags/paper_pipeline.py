@@ -1,23 +1,3 @@
-
-"""
-INFO-H420 Assignment 3
-Research Paper Processing Pipeline
-
-Workflow:
-    find_new_pdfs
-         |
-         v
-    process_paper (one task per new PDF)
-         |
-         v
-    build_html
-         |
-         v
-    notify
-
-Airflow version: 3.0.6
-"""
-
 import os
 import sys
 import logging
@@ -27,8 +7,7 @@ from datetime import timedelta
 import pendulum
 from airflow.sdk import dag, task
 
-# Let Airflow import "src" when this file is in PROJECT_ROOT/dags/.
-# The existing PYTHONPATH configuration can still be used.
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -53,10 +32,7 @@ logger = logging.getLogger(__name__)
 )
 def paper_pipeline():
 
-    # --------------------------------------------------
-    # TASK 1: Find new PDFs
-    # --------------------------------------------------
-
+    # find new df
     @task(task_id="find_new_pdfs")
     def find_new_pdfs() -> list[str]:
         from src.db import init_db, is_processed
@@ -68,14 +44,13 @@ def paper_pipeline():
                 f"Papers directory not found: {papers_dir}"
             )
 
-        # Ensure the local database directory exists
         db_path = Path(os.environ["DB_PATH"])
         db_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Create the database table if needed
+        # Create new DB
         init_db()
 
-        # Find PDFs in the input folder
+        # Find teh PDFs
         pdf_files = sorted(
             p for p in papers_dir.iterdir()
             if p.is_file() and p.suffix.lower() == ".pdf"
@@ -96,14 +71,11 @@ def paper_pipeline():
 
         return new_pdfs
 
-    # --------------------------------------------------
-    # TASK 2: Process one research paper
-    # --------------------------------------------------
+    # Process PDFs
 
     @task(
         task_id="process_paper",
         execution_timeout=timedelta(minutes=15),
-        # max_active_tasks=1 above already makes all mapped papers sequential.
     )
     def process_paper(filename: str) -> dict[str, str]:
         from src.pdf_convert import convert_pdf
@@ -120,7 +92,7 @@ def paper_pipeline():
 
         logger.info("Processing PDF: %s", filename)
 
-        # Step A: Convert PDF into Markdown
+        # PDF to markdown conversion
         markdown = convert_pdf(str(pdf_path))
 
         if not markdown or not markdown.strip():
@@ -134,8 +106,7 @@ def paper_pipeline():
             filename,
         )
 
-        # Step B: Ask the local LLM for metadata
-        # The helper validates JSON and retries if needed
+        # Extract metadata using LLM
         metadata = extract_metadata(markdown)
 
         logger.info(
@@ -144,7 +115,7 @@ def paper_pipeline():
             metadata,
         )
 
-        # Step C: Save the metadata to SQLite
+        #  Save the data in sqllite DB
         save_paper(filename, metadata)
 
         logger.info(
@@ -160,16 +131,12 @@ def paper_pipeline():
             "category": metadata["category"],
         }
 
-    # --------------------------------------------------
-    # TASK 3: Generate searchable HTML page
-    # --------------------------------------------------
-
+    # Builds HTML UI 
     @task(task_id="build_html")
     def build_html(processed_papers: list[dict[str, str]]) -> dict:
         from src.db import get_all_papers
         from src.html_gen import generate_html
 
-        # Collect results from all mapped tasks
         processed_papers = list(processed_papers)
 
         logger.info(
@@ -177,10 +144,8 @@ def paper_pipeline():
             len(processed_papers),
         )
 
-        # Read all papers, including older ones
         all_papers = get_all_papers()
 
-        # Generate the HTML file in OUTPUT_DIR
         output_path = generate_html(all_papers)
 
         logger.info(
@@ -194,10 +159,7 @@ def paper_pipeline():
             "output_path": str(output_path),
         }
 
-    # --------------------------------------------------
-    # TASK 4: Send Discord notification
-    # --------------------------------------------------
-
+    # Discord Notification
     @task(task_id="notify", retries=0)
     def notify(result: dict) -> None:
         from src.notify import send_discord
@@ -216,7 +178,7 @@ def paper_pipeline():
 
         message = "\n".join(lines)
 
-        # Discord webhook messages have a size limit
+        # Size limit for the webhook
         message = message[:1900]
 
         send_discord(message)
@@ -226,14 +188,10 @@ def paper_pipeline():
             count,
         )
 
-    # --------------------------------------------------
-    # Define task dependencies
-    # --------------------------------------------------
 
     new_pdfs = find_new_pdfs()
 
-    # Dynamic task mapping:
-    # one instance for each new PDF
+
     processed = process_paper.expand(
         filename=new_pdfs
     )
@@ -242,6 +200,4 @@ def paper_pipeline():
 
     notify(html_result)
 
-
-# Register the DAG with Airflow
 paper_pipeline()

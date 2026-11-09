@@ -5,7 +5,8 @@ from openai import OpenAI
 
 BASE_URL = os.environ.get("LLM_BASE_URL", "http://localhost:11434/v1")
 MODEL = os.environ.get("LLM_MODEL", "llama3.2:3b")
-MAX_CHARS = 8000  # keeps the prompt inside the 4096-token context window
+# Tokens for the prompt
+MAX_CHARS = 8000  
 
 CATEGORIES = [
     "Data Engineering",
@@ -46,7 +47,7 @@ def _check(data: dict) -> dict:
         raise ValueError("keywords must be a list")
     data["keywords"] = [str(k) for k in data["keywords"]]
     if data["category"] not in CATEGORIES:
-        data["category"] = "Other"  # small models sometimes invent categories
+        data["category"] = "Other"  
     return data
 
 
